@@ -1,0 +1,29 @@
+# File compilati
+*.bin
+*.elf
+*.hex
+
+# Cartelle di build
+build/
+.build/
+.pio/
+
+# File di configurazione IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# File temporanei
+*.tmp
+*.bak
+*.swp
+*~
+
+# File di sistema
+.DS_Store
+Thumbs.db
+
+# Credenziali (IMPORTANTE!)
+wifi_config.h
+credentials.h
+*_private.h
