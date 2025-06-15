@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Project Context Manager - GitHub Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #24292e 0%, #586069 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #24292e, #586069);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .github-status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .repo-info {
+            background: #f6f8fa;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            border-left: 4px solid #0366d6;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .panel h3 {
+            color: #24292e;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #0366d6;
+            padding-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .context-info {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #0366d6;
+        }
+
+        .context-info h4 {
+            color: #24292e;
+            margin-bottom: 8px;
+        }
+
+        .context-info p {
+            color: #586069;
+            margin: 5px 0;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-align: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: #0366d6;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-github {
+            background: #24292e;
+            color: white;
+        }
+
+        .textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            resize: vertical;
+            background: #f6f8fa;
+        }
+
+        .log {
+            background: #24292e;
+            color: #f6f8fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+
+        .phase-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .phase-3a { background: #ffc107; }
+        .phase-3b { background: #fd7e14; }
+        .phase-4 { background: #28a745; }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .action-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #d1d5da;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-card:hover {
+            border-color: #0366d6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(3, 102, 214, 0.1);
+        }
+
+        .commit-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .file-tree {
+            background: #f6f8fa;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+
+        .countdown {
+            font-size: 14px;
+            color: #586069;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 ESP32 Project Context Manager</h1>
+            <p>Sistema di Misura Professionale - GitHub Integration</p>
+            <div id="githubStatus" class="github-status status disconnected">
+                <span>🔴</span>
+                <span>GitHub: Non connesso</span>
+                <button class="btn btn-github btn-small" onclick="github.authenticate()">
+                    Connect GitHub
+                </button>
+            </div>
+            <div class="repo-info" id="repoInfo" style="display: none;">
+                📁 <strong>Repository:</strong> ESP32-TouchMenu-HySeq<br>
+                🌿 <strong>Branch:</strong> main<br>
+                💾 <strong>Last Commit:</strong> <span id="lastCommit">Loading...</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- CURRENT CONTEXT -->
+            <div class="panel">
+                <h3>📊 Contesto Corrente</h3>
+                
+                <div class="context-info">
+                    <h4>🎯 Fase Progetto</h4>
+                    <p>
+                        <span class="phase-indicator phase-3a">FASE 3A</span>
+                        Integrazione Sistema → Testing
+                    </p>
+                    <p><strong>Ultima Sessione:</strong> <span id="lastSession">2025-06-15 15:30</span></p>
+                    <p><strong>Repository Files:</strong> <span id="fileCount">33 files</span></p>
+                </div>
+
+                <div class="context-info">
+                    <h4>🎯 Task Prioritari da GitHub Issues</h4>
+                    <div id="githubIssues">
+                        <p>• Test sincronizzazione sensori (&lt;10ms)</p>
+                        <p>• Fix Live Data Display touch area</p>
+                        <p>• Implementare test suite Fase 3B</p>
+                    </div>
+                </div>
+
+                <div class="context-info">
+                    <h4>📁 Files Modificati Recentemente</h4>
+                    <div class="file-tree" id="recentFiles">
+                        src/leaf_actions.cpp (2 hours ago)<br>
+                        src/touch_handler.cpp (3 hours ago)<br>
+                        src/menu_state.cpp (1 day ago)
+                    </div>
+                </div>
+
+                <div class="buttons">
+                    <button class="btn btn-success" onclick="loadFromGitHub()">
+                        📥 Sync da GitHub
+                    </button>
+                    <button class="btn btn-primary" onclick="saveToGitHub()">
+                        💾 Commit Context
+                    </button>
+                </div>
+            </div>
+
+            <!-- QUICK ACTIONS -->
+            <div class="panel">
+                <h3>⚡ Azioni GitHub</h3>
+                
+                <div class="quick-actions">
+                    <div class="action-card" onclick="generateStartTemplate()">
+                        <h4>🚀 Start Chat</h4>
+                        <p>Template con contesto GitHub</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="generateEndTemplate()">
+                        <h4>📦 End Chat</h4>
+                        <p>Commit summary + export</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="showGitHubIssues()">
+                        <h4>🐛 GitHub Issues</h4>
+                        <p>Task management</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="showRepoStats()">
+                        <h4>📊 Repo Stats</h4>
+                        <p>Analisi repository</p>
+                    </div>
+                </div>
+
+                <div class="commit-info">
+                    <h4>📝 Auto-Commit Context</h4>
+                    <p>Prossimo salvataggio automatico:</p>
+                    <div class="countdown" id="autoCommitCountdown">15:00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SESSION TEMPLATES -->
+        <div class="panel" style="margin: 20px;">
+            <h3>📋 Template Sessione GitHub</h3>
+            <textarea id="sessionTemplate" class="textarea" placeholder="Il template GitHub-aware verrà generato qui..."></textarea>
+            <div class="buttons">
+                <button class="btn btn-primary" onclick="copyTemplate()">📋 Copia Template</button>
+                <button class="btn btn-github" onclick="createGitHubIssue()">🐛 Crea GitHub Issue</button>
+                <button class="btn btn-warning" onclick="viewRepository()">👁️ Apri Repository</button>
+            </div>
+        </div>
+
+        <!-- LOG -->
+        <div class="panel" style="margin: 20px;">
+            <h3>📝 GitHub Activity Log</h3>
+            <div id="activityLog" class="log">
+                [15:30] Context Manager GitHub inizializzato<br>
+                [15:30] Connessione a ESP32-TouchMenu-HySeq...<br>
+                [15:31] ✅ Repository sincronizzato (33 files)<br>
+                [15:31] 🔄 Auto-commit attivato (15min)<br>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // GitHub API Manager
+        class GitHubContextManager {
+            constructor() {
+                this.owner = 'YOUR_GITHUB_USERNAME';  // Da configurare
+                this.repo = 'ESP32-TouchMenu-HySeq';
+                this.token = null;
+                this.apiBase = 'https://api.github.com';
+                this.contextFile = '.github/project-context.json';
+                this.isAuthenticated = false;
+            }
+
+            async authenticate() {
+                // Per ora usa Personal Access Token
+                // In produzione, usa OAuth App
+                const token = prompt('GitHub Personal Access Token:');
+                if (token) {
+                    this.token = token;
+                    localStorage.setItem('github_token', token);
+                    await this.testConnection();
+                }
+            }
+
+            async testConnection() {
+                try {
+                    const response = await this.makeRequest(`/repos/${this.owner}/${this.repo}`);
+                    if (response.ok) {
+                        const repo = await response.json();
+                        this.isAuthenticated = true;
+                        this.updateConnectionStatus(true, repo);
+                        await this.loadRepositoryInfo();
+                        log('✅ Connesso a GitHub repository');
+                    }
+                } catch (error) {
+                    log('❌ Errore connessione GitHub: ' + error.message);
+                    this.updateConnectionStatus(false);
+                }
+            }
+
+            updateConnectionStatus(connected, repoData = null) {
+                const statusElement = document.getElementById('githubStatus');
+                const repoInfo = document.getElementById('repoInfo');
+                
+                if (connected && repoData) {
+                    statusElement.className = 'github-status status connected';
+                    statusElement.innerHTML = `
+                        <span>🟢</span>
+                        <span>GitHub: ${repoData.full_name}</span>
+                        <span style="font-size: 12px;">(${repoData.private ? 'Private' : 'Public'})</span>
+                    `;
+                    repoInfo.style.display = 'block';
+                } else {
+                    statusElement.className = 'github-status status disconnected';
+                    statusElement.innerHTML = `
+                        <span>🔴</span>
+                        <span>GitHub: Non connesso</span>
+                        <button class="btn btn-github" onclick="github.authenticate()">Connect</button>
+                    `;
+                    repoInfo.style.display = 'none';
+                }
+            }
+
+            async makeRequest(endpoint, options = {}) {
+                const url = this.apiBase + endpoint;
+                const headers = {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    ...options.headers
+                };
+
+                return fetch(url, {
+                    ...options,
+                    headers
+                });
+            }
+
+            async loadRepositoryInfo() {
+                try {
+                    // Get repository stats
+                    const repoResponse = await this.makeRequest(`/repos/${this.owner}/${this.repo}`);
+                    const repo = await repoResponse.json();
+                    
+                    // Get latest commit
+                    const commitsResponse = await this.makeRequest(`/repos/${this.owner}/${this.repo}/commits`);
+                    const commits = await commitsResponse.json();
+                    
+                    if (commits.length > 0) {
+                        const lastCommit = commits[0];
+                        document.getElementById('lastCommit').textContent = 
+                            `${lastCommit.sha.substring(0, 7)} - ${lastCommit.commit.message.substring(0, 50)}...`;
+                    }
+
+                    // Get file count
+                    const contentsResponse = await this.makeRequest(`/repos/${this.owner}/${this.repo}/contents/src`);
+                    const contents = await contentsResponse.json();
+                    if (Array.isArray(contents)) {
+                        document.getElementById('fileCount').textContent = `${contents.length} files in /src`;
+                    }
+
+                    // Get recent files
+                    await this.loadRecentFiles();
+                    
+                } catch (error) {
+                    log('⚠️ Errore caricamento info repository: ' + error.message);
+                }
+            }
+
+            async loadRecentFiles() {
+                try {
+                    const response = await this.makeRequest(`/repos/${this.owner}/${this.repo}/commits?per_page=10`);
+                    const commits = await response.json();
+                    
+                    const recentFiles = new Set();
+                    for (const commit of commits.slice(0, 5)) {
+                        const detailResponse = await this.makeRequest(`/repos/${this.owner}/${this.repo}/commits/${commit.sha}`);
+                        const detail = await detailResponse.json();
+                        
+                        detail.files?.forEach(file => {
+                            if (file.filename.startsWith('src/')) {
+                                recentFiles.add(file.filename);
+                            }
+                        });
+                    }
+
+                    const recentFilesDiv = document.getElementById('recentFiles');
+                    recentFilesDiv.innerHTML = Array.from(recentFiles).slice(0, 5)
+                        .map(file => `${file} (recently modified)`)
+                        .join('<br>');
+                        
+                } catch (error) {
+                    log('⚠️ Errore caricamento file recenti: ' + error.message);
+                }
+            }
+
+            async saveContextToGitHub(contextData) {
+                if (!this.isAuthenticated) {
+                    log('⚠️ Non autenticato su GitHub');
+                    return;
+                }
+
+                try {
+                    const content = btoa(JSON.stringify(contextData, null, 2));
+                    
+                    // Check if file exists
+                    let sha = null;
+                    try {
+                        const existingResponse = await this.makeRequest(`/repos/${this.owner}/${this.repo}/contents/${this.contextFile}`);
+                        const existing = await existingResponse.json();
+                        sha = existing.sha;
+                    } catch (e) {
+                        // File doesn't exist, that's OK
+                    }
+
+                    const commitData = {
+                        message: `📊 Update project context - ${new Date().toISOString()}`,
+                        content: content,
+                        branch: 'main'
+                    };
+
+                    if (sha) {
+                        commitData.sha = sha;
+                    }
+
+                    const response = await this.makeRequest(`/repos/${this.owner}/${this.repo}/contents/${this.contextFile}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(commitData)
+                    });
+
+                    if (response.ok) {
+                        log('💾 Contesto committato su GitHub');
+                    } else {
+                        const error = await response.json();
+                        log('❌ Errore commit: ' + error.message);
+                    }
+                    
+                } catch (error) {
+                    log('❌ Errore salvataggio GitHub: ' + error.message);
+                }
+            }
+
+            async loadContextFromGitHub() {
+                if (!this.isAuthenticated) return;
+
+                try {
+                    const response = await this.makeRequest(`/repos/${this.owner}/${this.repo}/contents/${this.contextFile}`);
+                    
+                    if (response.ok) {
+                        const file = await response.json();
+                        const content = atob(file.content);
+                        const contextData = JSON.parse(content);
+                        
+                        this.applyContextToUI(contextData);
+                        log('📥 Contesto caricato da GitHub');
+                    }
+                } catch (error) {
+                    log('ℹ️ Nessun contesto esistente su GitHub');
+                }
+            }
+
+            applyContextToUI(contextData) {
+                if (contextData.phase) {
+                    projectContext.phase = contextData.phase;
+                }
+                if (contextData.lastSession) {
+                    document.getElementById('lastSession').textContent = contextData.lastSession;
+                }
+                if (contextData.tasksPending) {
+                    projectContext.tasksPending = contextData.tasksPending;
+                }
+                
+                generateStartTemplate();
+            }
+
+            getCurrentContext() {
+                return {
+                    ...projectContext,
+                    lastUpdate: new Date().toISOString(),
+                    repository: `${this.owner}/${this.repo}`,
+                    branch: 'main'
+                };
+            }
+        }
+
+        // Initialize GitHub manager
+        let github = new GitHubContextManager();
+
+        // Project context data
+        let projectContext = {
+            phase: "FASE_3A_TO_3B",
+            lastSession: "2025-06-15 15:30",
+            repository: "ESP32-TouchMenu-HySeq",
+            tasksCompleted: [
+                "✅ Hardware validato (I2C scanner + all devices)",
+                "✅ Driver IMU implementato (calibrazione + filtri)",
+                "✅ Driver Radar XM125 (Kalman filter funzionante)",
+                "✅ Menu Touch modulare (33 files + service PIN)",
+                "✅ Context Manager GitHub integrato"
+            ],
+            tasksPending: [
+                "Fix Live Data Display touch area (BACK button coordinates)",
+                "Test sincronizzazione sensori (target <10ms latenza)",
+                "Implementare test suite automatizzata Fase 3B",
+                "Setup test environment con strumenti calibrati"
+            ],
+            issues: [
+                "touch_handler.cpp: BACK button area imprecisa (20,270,80,35)",
+                "leaf_actions.cpp: updateLiveDataDisplay() da completare",
+                "Service menu: Settings/About/Reset stub da implementare",
+                "Test performance: manca TestLogger classe"
+            ],
+            techParams: {
+                repository: "ESP32-TouchMenu-HySeq",
+                mainFiles: ["ESP32S3_TouchMenu_Final.ino", "src/leaf_actions.cpp", "src/touch_handler.cpp"],
+                imuI2C: "0x6A + 0x1C (Wire: SDA=11, SCL=10)",
+                radarI2C: "0x52 (Wire: SDA=11, SCL=10)",
+                touchI2C: "Wire1: SDA=1, SCL=3",
+                kalmanParams: "(20, 10, 0.1) - validati",
+                deadZones: "pitch=0.1°, yaw=0.15° adattive",
+                servicePin: "235711"
+            }
+        };
+
+        // Auto-commit countdown
+        let countdown = 15 * 60;
+        function updateCountdown() {
+            const minutes = Math.floor(countdown / 60);
+            const seconds = countdown % 60;
+            document.getElementById('autoCommitCountdown').textContent = 
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (countdown > 0) {
+                countdown--;
+            } else {
+                autoCommit();
+                countdown = 15 * 60;
+            }
+        }
+        setInterval(updateCountdown, 1000);
+
+        function log(message) {
+            const logElement = document.getElementById('activityLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}<br>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function generateStartTemplate() {
+            const template = `# 🚀 INIZIALIZZAZIONE SESSIONE ESP32 - GitHub Sync
+
+**Progetto**: Sistema di Misura ESP32 + Radar mmWave + IMU  
+**Repository**: [${projectContext.repository}](https://github.com/YOUR_USERNAME/${projectContext.repository})  
+**Fase Corrente**: ${projectContext.phase} - Transizione Testing  
+**Ultima Sessione**: ${projectContext.lastSession}  
+**Files Repository**: 33+ files in modular structure  
+
+## 📊 STATO REPOSITORY
+
+### ✅ Completato (verificato da GitHub)
+${projectContext.tasksCompleted.map(task => `- ${task}`).join('\n')}
+
+### ⏳ Priority Tasks (da GitHub Issues)  
+${projectContext.tasksPending.map(task => `- ${task}`).join('\n')}
+
+### 🐛 Issues Aperti (trackati su GitHub)
+${projectContext.issues.map(issue => `- ${issue}`).join('\n')}
+
+## 🔧 PARAMETRI TECNICI (da Repository)
+\`\`\`cpp
+// Repository: ${projectContext.techParams.repository}
+// Main Files: ${projectContext.techParams.mainFiles.join(', ')}
+
+// Hardware Configuration (VALIDATED)
+IMU: ${projectContext.techParams.imuI2C}
+Radar: ${projectContext.techParams.radarI2C} 
+Touch: ${projectContext.techParams.touchI2C}
+
+// Software Parameters (OPTIMIZED)
+Kalman: ${projectContext.techParams.kalmanParams}
+Dead Zones: ${projectContext.techParams.deadZones}
+Service PIN: ${projectContext.techParams.servicePin}
+\`\`\`
+
+## 🎯 OBIETTIVI SESSIONE
+1. **IMMEDIATO**: ${projectContext.tasksPending[0]}
+2. **PRIORITY**: ${projectContext.tasksPending[1]} 
+3. **TESTING**: ${projectContext.tasksPending[2]}
+
+## 📁 TARGET FILES (GitHub Repository)
+- \`src/leaf_actions.cpp\` - Live data display + BACK button fix
+- \`src/touch_handler.cpp\` - Debug coordinate touch precision  
+- \`src/sync_test.h\` - Test suite automatizzati da implementare
+- \`.github/workflows/\` - CI/CD per testing automatico (futuro)
+
+---
+**Claude, per favore conferma:**  
+✅ Hai analizzato il repository GitHub ESP32-TouchMenu-HySeq?  
+✅ Hai compreso la transizione Fase 3A→3B e i file target?  
+✅ Sei pronto a iniziare con il fix del touch issue?  
+
+**Iniziamo con:** Debug BACK button coordinates in Live Data Display
+
+---
+*Context auto-salvato su GitHub: ${new Date().toLocaleString()}*`;
+
+            document.getElementById('sessionTemplate').value = template;
+            log('📋 Template GitHub-aware generato');
+        }
+
+        function generateEndTemplate() {
+            const template = `# 📦 SESSION EXPORT - GitHub Commit
+
+**Repository**: ${projectContext.repository}  
+**Branch**: main  
+**Session Date**: ${new Date().toLocaleDateString('it-IT')}  
+**Duration**: [INSERIRE]  
+
+## ✅ COMPLETED THIS SESSION
+- [INSERIRE TASK COMPLETATI]
+- [INSERIRE FILE MODIFICATI]
+
+## 📝 FILES CHANGED  
+- \`src/file1.cpp\` - [DESCRIZIONE MODIFICHE]
+- \`src/file2.h\` - [DESCRIZIONE MODIFICHE]
+
+## 🐛 NEW ISSUES DISCOVERED
+- [INSERIRE NUOVI PROBLEMI - CREARE GITHUB ISSUES]
+
+## 💡 TECHNICAL DECISIONS
+- [INSERIRE SCELTE ARCHITETTURALI]
+
+## 🎯 NEXT SESSION FOCUS
+**Primary Goal**: [INSERIRE OBIETTIVO PRINCIPALE]
+**Target Files**: [FILE DA MODIFICARE]  
+**GitHub Issues**: [LINK ALLE ISSUES]
+
+## 📊 COMMIT SUMMARY
+\`\`\`
+git add .
+git commit -m "📊 Session update: [BREVE DESCRIZIONE]
+
+- Fix: [COSA È STATO FIXATO]
+- Add: [COSA È STATO AGGIUNTO]  
+- Update: [COSA È STATO AGGIORNATO]
+
+Closes #[ISSUE_NUMBER]"
+git push origin main
+\`\`\`
+
+---
+*Auto-committed to GitHub: ${new Date().toLocaleString()}*`;
+
+            document.getElementById('sessionTemplate').value = template;
+            log('📦 Template END GitHub generato');
+        }
+
+        function copyTemplate() {
+            const template = document.getElementById('sessionTemplate');
+            template.select();
+            document.execCommand('copy');
+            log('📋 Template copiato negli appunti');
+            
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copiato!';
+            btn.style.background = '#28a745';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '#0366d6';
+            }, 2000);
+        }
+
+        function saveToGitHub() {
+            if (github.isAuthenticated) {
+                github.saveContextToGitHub(github.getCurrentContext());
+            } else {
+                log('⚠️ Autenticazione GitHub richiesta');
+                github.authenticate();
+            }
+        }
+
+        function loadFromGitHub() {
+            if (github.isAuthenticated) {
+                github.loadContextFromGitHub();
+            } else {
+                log('⚠️ Autenticazione GitHub richiesta');
+                github.authenticate();
+            }
+        }
+
+        function createGitHubIssue() {
+            if (github.isAuthenticated) {
+                const title = prompt('Titolo Issue GitHub:');
+                if (title) {
+                    const url = `https://github.com/${github.owner}/${github.repo}/issues/new?title=${encodeURIComponent(title)}`;
+                    window.open(url, '_blank');
+                    log('🐛 Apertura GitHub Issues...');
+                }
+            } else {
+                alert('Autenticazione GitHub richiesta');
+            }
+        }
+
+        function viewRepository() {
+            const url = `https://github.com/${github.owner}/${github.repo}`;
+            window.open(url, '_blank');
+            log('👁️ Apertura repository GitHub...');
+        }
+
+        function showGitHubIssues() {
+            alert('Caricamento GitHub Issues in corso...\n\nQuesta funzione caricherà le issues aperte dal repository.');
+            if (github.isAuthenticated) {
+                viewRepository();
+            }
+        }
+
+        function showRepoStats() {
+            if (github.isAuthenticated) {
+                alert('Repository Stats:\n\n• Files: 33+ in src/\n• Language: C++ (Arduino)\n• Last Update: Recent\n• Status: Active Development');
+            } else {
+                alert('Connessione GitHub richiesta per visualizzare statistiche repository');
+            }
+        }
+
+        function autoCommit() {
+            log('🔄 Auto-commit in corso...');
+            saveToGitHub();
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            log('🚀 Context Manager GitHub inizializzato');
+            
+            // Check for saved token
+            const savedToken = localStorage.getItem('github_token');
+            if (savedToken) {
+                github.token = savedToken;
+                github.testConnection();
+            }
+            
+            generateStartTemplate();
+        };
+    </script>
+</body>
+</html>
