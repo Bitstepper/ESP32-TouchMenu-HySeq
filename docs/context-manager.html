@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Context Manager - v2.2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #24292e 0%, #586069 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #24292e 0%, #40464e 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .version-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            padding: 24px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .panel h3 {
+            color: #24292e;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #0366d6;
+        }
+
+        .status-card {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 12px 0;
+            border: 1px solid #e1e4e8;
+            border-left: 4px solid #0366d6;
+        }
+
+        .error-card {
+            background: #ffeaa7;
+            border-left-color: #e17055;
+            color: #2d3436;
+        }
+
+        .success-card {
+            background: #d5f4e6;
+            border-left-color: #00b894;
+            color: #2d3436;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin: 4px;
+            font-size: 14px;
+        }
+
+        .btn-primary { background: #0366d6; color: white; border-color: #0366d6; }
+        .btn-success { background: #28a745; color: white; border-color: #28a745; }
+        .btn-warning { background: #ffc107; color: #212529; border-color: #ffc107; }
+
+        .btn:disabled {
+            background: #f6f8fa;
+            color: #6a737d;
+            cursor: not-allowed;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .action-card {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e1e4e8;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+
+        .action-card:hover:not(.disabled) {
+            border-color: #0366d6;
+            transform: translateY(-1px);
+        }
+
+        .action-card.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .template-area {
+            grid-column: 1 / -1;
+            margin-top: 16px;
+        }
+
+        .textarea {
+            width: 100%;
+            height: 280px;
+            padding: 16px;
+            border: 1px solid #d1d5da;
+            border-radius: 8px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 12px;
+            background: #f6f8fa;
+            resize: vertical;
+            line-height: 1.4;
+        }
+
+        .loading-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: #e1f5fe;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+
+        .loading-indicator.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #0366d6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .log {
+            background: #24292e;
+            color: #f6f8fa;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 11px;
+            max-height: 250px;
+            overflow-y: auto;
+            margin: 12px 0;
+            line-height: 1.4;
+        }
+
+        .timeout-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-size: 12px;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .main-content { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 ESP32 Context Manager <span class="version-badge">v2.2</span></h1>
+            <p>Robust Error Handling & Timeout Management</p>
+        </div>
+
+        <div class="main-content">
+            <!-- STATUS PANEL -->
+            <div class="panel">
+                <h3>📊 System Status</h3>
+                
+                <div id="statusCard" class="status-card">
+                    <h4>🔗 GitHub Connection</h4>
+                    <p><strong>Repository:</strong> ESP32-TouchMenu-HySeq</p>
+                    <p><strong>API Status:</strong> <span id="apiStatus">Testing...</span></p>
+                    <p><strong>Files Status:</strong> <span id="filesStatus">Checking...</span></p>
+                </div>
+
+                <div id="errorDetails" class="status-card error-card" style="display: none;">
+                    <h4>❌ Error Details</h4>
+                    <p id="errorMessage"></p>
+                    <p><strong>Suggestion:</strong> <span id="errorSuggestion"></span></p>
+                </div>
+
+                <div class="loading-indicator" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <span id="loadingText">Loading...</span>
+                </div>
+
+                <div>
+                    <button class="btn btn-primary" onclick="testConnection()" id="testBtn">
+                        🔍 Test Connection
+                    </button>
+                    <button class="btn btn-success" onclick="syncDocs()" id="syncBtn">
+                        📥 Sync Docs
+                    </button>
+                </div>
+            </div>
+
+            <!-- ACTIONS PANEL -->
+            <div class="panel">
+                <h3>⚡ Actions</h3>
+                
+                <div class="quick-actions">
+                    <div class="action-card" onclick="generateStartTemplate()">
+                        <h4>🚀 Start Chat</h4>
+                        <p>Session template</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="generateEndTemplate()">
+                        <h4>📦 End Chat</h4>
+                        <p>Export summary</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="showTestPlan()" id="testPlanCard">
+                        <h4>🧪 Test Plan</h4>
+                        <p>From repository</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="showPerformance()" id="perfCard">
+                        <h4>📊 Performance</h4>
+                        <p>Criteria & metrics</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="showEmbeddedPlan()">
+                        <h4>📋 Embedded</h4>
+                        <p>Fallback content</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="openRepository()">
+                        <h4>🔗 Repository</h4>
+                        <p>Open GitHub</p>
+                    </div>
+                </div>
+
+                <div class="timeout-warning" id="timeoutWarning" style="display: none;">
+                    ⏰ <strong>Timeout Protection:</strong> Operations limited to 10 seconds to prevent hanging.
+                </div>
+            </div>
+
+            <!-- TEMPLATE AREA -->
+            <div class="panel template-area">
+                <h3>📋 Template Output</h3>
+                <textarea id="sessionTemplate" class="textarea" 
+                          placeholder="Click action buttons above to generate templates..."></textarea>
+                <div>
+                    <button class="btn btn-primary" onclick="copyTemplate()">📋 Copy</button>
+                    <button class="btn btn-warning" onclick="shareTemplate()">🔗 Share</button>
+                    <button class="btn btn-success" onclick="clearTemplate()">🗑️ Clear</button>
+                </div>
+            </div>
+
+            <!-- DEBUG LOG -->
+            <div class="panel template-area">
+                <h3>📝 Debug Log</h3>
+                <div id="debugLog" class="log">
+                    [Init] Context Manager v2.2 initialized<br>
+                    [Info] Robust error handling enabled<br>
+                    [Info] 10-second timeout protection active<br>
+                </div>
+                <button class="btn btn-warning" onclick="clearLog()">Clear Log</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === CONFIGURATION ===
+        const CONFIG = {
+            owner: 'Bitstepper',
+            repo: 'ESP32-TouchMenu-HySeq',
+            branch: 'main',
+            timeout: 10000, // 10 seconds
+            files: {
+                testPlan: 'docs/test-plans/fase-3b-test-plan.md',
+                performance: 'docs/test-plans/performance-criteria.md'
+            }
+        };
+
+        // === STATE ===
+        let state = {
+            apiWorking: false,
+            filesExist: false,
+            lastError: null,
+            cache: {},
+            isLoading: false
+        };
+
+        // === UTILITY FUNCTIONS ===
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            logEl.innerHTML += `[${timestamp}] ${icon} ${message}<br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+            log('Debug log cleared');
+        }
+
+        function showLoading(text = 'Loading...') {
+            state.isLoading = true;
+            const indicator = document.getElementById('loadingIndicator');
+            const textEl = document.getElementById('loadingText');
+            textEl.textContent = text;
+            indicator.classList.add('show');
+            
+            // Disable buttons
+            document.getElementById('testBtn').disabled = true;
+            document.getElementById('syncBtn').disabled = true;
+        }
+
+        function hideLoading() {
+            state.isLoading = false;
+            document.getElementById('loadingIndicator').classList.remove('show');
+            
+            // Re-enable buttons
+            document.getElementById('testBtn').disabled = false;
+            document.getElementById('syncBtn').disabled = false;
+        }
+
+        function updateStatus(api, files, error = null) {
+            document.getElementById('apiStatus').textContent = api;
+            document.getElementById('filesStatus').textContent = files;
+            
+            if (error) {
+                const errorCard = document.getElementById('errorDetails');
+                document.getElementById('errorMessage').textContent = error.message;
+                document.getElementById('errorSuggestion').textContent = error.suggestion || 'Try again later';
+                errorCard.style.display = 'block';
+            } else {
+                document.getElementById('errorDetails').style.display = 'none';
+            }
+        }
+
+        // === ROBUST FETCH WITH TIMEOUT ===
+        async function fetchWithTimeout(url, options = {}, timeout = CONFIG.timeout) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    throw new Error(`Request timeout after ${timeout/1000}s`);
+                }
+                throw error;
+            }
+        }
+
+        // === GITHUB API FUNCTIONS ===
+        async function testGitHubAPI() {
+            log('Testing GitHub API connectivity...');
+            
+            try {
+                const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}`;
+                const response = await fetchWithTimeout(url);
+                
+                log(`API Response: ${response.status} ${response.statusText}`);
+                
+                if (response.status === 403) {
+                    const rateLimitReset = response.headers.get('X-RateLimit-Reset');
+                    const resetTime = rateLimitReset ? new Date(rateLimitReset * 1000).toLocaleTimeString() : 'unknown';
+                    throw {
+                        message: 'GitHub API rate limit exceeded',
+                        suggestion: `Rate limit resets at ${resetTime}`,
+                        type: 'rateLimit'
+                    };
+                }
+                
+                if (response.status === 404) {
+                    throw {
+                        message: 'Repository not found',
+                        suggestion: 'Check repository name and visibility',
+                        type: 'notFound'
+                    };
+                }
+                
+                if (!response.ok) {
+                    throw {
+                        message: `GitHub API error: ${response.status}`,
+                        suggestion: 'Check network connection',
+                        type: 'apiError'
+                    };
+                }
+                
+                const data = await response.json();
+                log(`✅ Repository accessible: ${data.full_name}`, 'success');
+                state.apiWorking = true;
+                return true;
+                
+            } catch (error) {
+                log(`❌ API test failed: ${error.message}`, 'error');
+                state.apiWorking = false;
+                state.lastError = error;
+                throw error;
+            }
+        }
+
+        async function checkFiles() {
+            if (!state.apiWorking) {
+                throw new Error('GitHub API not accessible');
+            }
+            
+            log('Checking test-plans files...');
+            
+            try {
+                const filesToCheck = Object.values(CONFIG.files);
+                const results = await Promise.allSettled(
+                    filesToCheck.map(async (filePath) => {
+                        const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${filePath}`;
+                        const response = await fetchWithTimeout(url);
+                        
+                        if (response.status === 404) {
+                            throw new Error(`File not found: ${filePath}`);
+                        }
+                        
+                        if (!response.ok) {
+                            throw new Error(`Cannot access ${filePath}: ${response.status}`);
+                        }
+                        
+                        return { filePath, exists: true };
+                    })
+                );
+                
+                const failed = results.filter(r => r.status === 'rejected');
+                const succeeded = results.filter(r => r.status === 'fulfilled');
+                
+                log(`Files check: ${succeeded.length}/${filesToCheck.length} accessible`);
+                
+                if (failed.length > 0) {
+                    const missingFiles = failed.map(r => r.reason.message).join(', ');
+                    throw {
+                        message: `Missing files: ${failed.length}/${filesToCheck.length}`,
+                        suggestion: 'Create missing files in repository',
+                        type: 'missingFiles',
+                        details: missingFiles
+                    };
+                }
+                
+                state.filesExist = true;
+                return true;
+                
+            } catch (error) {
+                log(`❌ File check failed: ${error.message}`, 'error');
+                state.filesExist = false;
+                throw error;
+            }
+        }
+
+        async function loadFile(filePath) {
+            if (!state.apiWorking) {
+                throw new Error('GitHub API not accessible');
+            }
+            
+            // Check cache first
+            if (state.cache[filePath]) {
+                log(`Using cached version of ${filePath}`);
+                return state.cache[filePath];
+            }
+            
+            log(`Loading file: ${filePath}`);
+            
+            try {
+                const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${filePath}`;
+                const response = await fetchWithTimeout(url);
+                
+                if (!response.ok) {
+                    throw new Error(`Cannot load ${filePath}: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const content = atob(data.content);
+                
+                // Cache the result
+                state.cache[filePath] = content;
+                
+                log(`✅ Loaded ${filePath} (${content.length} chars)`, 'success');
+                return content;
+                
+            } catch (error) {
+                log(`❌ Failed to load ${filePath}: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // === MAIN FUNCTIONS ===
+        async function testConnection() {
+            if (state.isLoading) return;
+            
+            showLoading('Testing connection...');
+            document.getElementById('timeoutWarning').style.display = 'block';
+            
+            try {
+                await testGitHubAPI();
+                await checkFiles();
+                
+                updateStatus('✅ Connected', '✅ Files accessible');
+                log('✅ Full connection test passed', 'success');
+                
+                // Enable file-based actions
+                document.getElementById('testPlanCard').classList.remove('disabled');
+                document.getElementById('perfCard').classList.remove('disabled');
+                
+            } catch (error) {
+                updateStatus('❌ Failed', '❌ Cannot access', error);
+                log(`❌ Connection test failed: ${error.message}`, 'error');
+                
+                // Disable file-based actions
+                document.getElementById('testPlanCard').classList.add('disabled');
+                document.getElementById('perfCard').classList.add('disabled');
+                
+            } finally {
+                hideLoading();
+                setTimeout(() => {
+                    document.getElementById('timeoutWarning').style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        async function syncDocs() {
+            if (state.isLoading) return;
+            
+            showLoading('Syncing documentation...');
+            
+            try {
+                if (!state.apiWorking) {
+                    await testGitHubAPI();
+                }
+                
+                // Clear cache to force reload
+                state.cache = {};
+                
+                const testPlan = await loadFile(CONFIG.files.testPlan);
+                const performance = await loadFile(CONFIG.files.performance);
+                
+                log('✅ Documentation synced successfully', 'success');
+                updateStatus('✅ Connected', '✅ Synced');
+                
+            } catch (error) {
+                log(`❌ Sync failed: ${error.message}`, 'error');
+                updateStatus('❌ Sync failed', '❌ Error', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // === TEMPLATE ACTIONS ===
+        async function showTestPlan() {
+            if (document.getElementById('testPlanCard').classList.contains('disabled')) {
+                alert('Test connection first to access repository files');
+                return;
+            }
+            
+            showLoading('Loading test plan...');
+            
+            try {
+                const content = await loadFile(CONFIG.files.testPlan);
+                document.getElementById('sessionTemplate').value = content;
+                log('📋 Test plan displayed from repository');
+            } catch (error) {
+                log(`❌ Cannot load test plan: ${error.message}`, 'error');
+                showEmbeddedPlan();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function showPerformance() {
+            if (document.getElementById('perfCard').classList.contains('disabled')) {
+                alert('Test connection first to access repository files');
+                return;
+            }
+            
+            showLoading('Loading performance criteria...');
+            
+            try {
+                const content = await loadFile(CONFIG.files.performance);
+                document.getElementById('sessionTemplate').value = content;
+                log('📊 Performance criteria displayed from repository');
+            } catch (error) {
+                log(`❌ Cannot load performance criteria: ${error.message}`, 'error');
+                showEmbeddedPerformance();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showEmbeddedPlan() {
+            const content = `# 🧪 TEST PLAN FASE 3B (Embedded Fallback)
+
+**Status**: Fallback version - Repository files not accessible
+**Version**: v2.2 Embedded
+
+## 🚨 REPOSITORY CONNECTION ISSUE
+- Cannot load full test plan from repository
+- Using abbreviated embedded version
+- Fix: Resolve GitHub API connectivity
+
+## ⭐ CRITICAL TESTS (Summary)
+1. **Sensor Sync**: IMU↔Radar <10ms latency
+2. **Touch Precision**: >95% accuracy in Live Data Display
+3. **Display Stability**: 30Hz refresh without flickering  
+4. **Performance**: 8h continuous operation
+
+## 🎯 IMMEDIATE ACTIONS
+1. **Fix Repository Access**: Test connection button
+2. **Touch Coordinates**: src/touch_handler.cpp BACK button
+3. **Test Implementation**: src/sync_test.h integration
+
+## 📋 IMPLEMENTATION PRIORITY
+- Fix Context Manager connectivity first
+- Then access full test documentation
+- Complete test automation implementation
+
+For complete test plan: Fix repository connection or check GitHub directly.`;
+
+            document.getElementById('sessionTemplate').value = content;
+            log('📋 Embedded test plan displayed (fallback)');
+        }
+
+        function showEmbeddedPerformance() {
+            const content = `# 📊 PERFORMANCE CRITERIA (Embedded Fallback)
+
+**Status**: Fallback version - Repository files not accessible
+**Version**: v2.2 Embedded
+
+## 🚨 REPOSITORY CONNECTION ISSUE  
+- Cannot load full criteria from repository
+- Using abbreviated embedded version
+
+## ⭐ KEY METRICS (Summary)
+- **Sync Latency**: <10ms target, <20ms critical
+- **Accuracy**: ±2mm distance, ±0.1° pitch, ±0.5° yaw
+- **Performance**: <50% CPU, >4h uptime, <3s boot
+- **Touch**: >95% accuracy, <50ms response
+
+## 🎯 CRITICAL THRESHOLDS
+- Boot time: <3000ms
+- IMU↔Radar sync: <10ms
+- Touch accuracy: >95%
+- Continuous operation: >4h
+
+For detailed criteria matrix: Fix repository connection.`;
+
+            document.getElementById('sessionTemplate').value = content;
+            log('📊 Embedded performance criteria displayed (fallback)');
+        }
+
+        function generateStartTemplate() {
+            const apiStatus = state.apiWorking ? '✅ Connected' : '❌ Connection issues';
+            const filesStatus = state.filesExist ? '✅ Accessible' : '❌ Cannot access';
+            
+            const template = `# 🚀 ESP32 SESSION - Context Manager v2.2
+
+**Repository**: [ESP32-TouchMenu-HySeq](https://github.com/Bitstepper/ESP32-TouchMenu-HySeq)
+**Context Manager**: v2.2 Enhanced Error Handling
+**GitHub API**: ${apiStatus}
+**Test Plans**: ${filesStatus}
+**Timestamp**: ${new Date().toLocaleString('it-IT')}
+
+## 📊 SYSTEM STATUS
+- **API Connection**: ${apiStatus}
+- **Repository Files**: ${filesStatus}
+- **Error Handling**: ✅ Enhanced with timeout protection
+- **Fallback Mode**: ${state.apiWorking ? '🚫 Not needed' : '✅ Active'}
+
+## 🎯 PRIORITY ACTIONS
+1. **${state.apiWorking ? 'Repository connected - proceed with development' : 'Fix GitHub API connectivity issues'}**
+2. **Touch Coordinates**: Fix BACK button detection in Live Data Display
+3. **Test Implementation**: Connect file-based test plans with automation
+4. **Performance**: Implement real-time metrics collection
+
+## 🚨 IMMEDIATE FOCUS
+**Critical Issue**: ${state.lastError ? state.lastError.message : 'Touch coordinates in src/touch_handler.cpp'}
+
+**Implementation Files**:
+- src/touch_handler.cpp (touch detection fix)
+- src/leaf_actions.cpp (Live Data Display)
+- src/sync_test.h (test automation)
+
+Claude, ready to:
+✅ ${state.apiWorking ? 'Use repository test plans for implementation' : 'Work with embedded fallback content'}
+✅ Fix touch detection coordinates issue
+✅ Implement test automation framework
+
+Let's start with the most critical issue!`;
+
+            document.getElementById('sessionTemplate').value = template;
+            log('🚀 Start template generated with current system status');
+        }
+
+        function generateEndTemplate() {
+            const template = `# 📦 SESSION EXPORT ESP32 v2.2
+
+**Date**: ${new Date().toLocaleDateString('it-IT')}
+**Context Manager**: v2.2 Enhanced Error Handling
+**API Status**: ${state.apiWorking ? 'Connected' : 'Issues resolved'}
+
+## ✅ COMPLETED THIS SESSION
+- [INSERT COMPLETED TASKS]
+- [INSERT FILES MODIFIED]
+- [INSERT TESTS IMPLEMENTED]
+
+## 🔧 CONTEXT MANAGER IMPROVEMENTS
+- Enhanced error handling and timeout protection
+- Robust GitHub API connectivity testing
+- Fallback mode for offline/connection issues
+- Better user feedback and debugging
+
+## 📁 FILES MODIFIED
+\`\`\`
+- src/[FILE].cpp - [DESCRIPTION]
+- docs/context-manager.html - v2.2 improvements
+\`\`\`
+
+## 🎯 NEXT SESSION FOCUS
+**Priority**: [NEXT CRITICAL TASK]
+**GitHub Status**: ${state.apiWorking ? 'Maintain connection' : 'Verify connectivity improvements'}
+
+---
+*Session closed: ${new Date().toLocaleTimeString()}*
+*Context Manager v2.2 - Robust & Reliable*`;
+
+            document.getElementById('sessionTemplate').value = template;
+            log('📦 End template generated');
+        }
+
+        // === UTILITY ACTIONS ===
+        function copyTemplate() {
+            const textarea = document.getElementById('sessionTemplate');
+            textarea.select();
+            document.execCommand('copy');
+            log('📋 Template copied to clipboard');
+            
+            // Visual feedback
+            const btn = event.target;
+            const original = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => btn.textContent = original, 2000);
+        }
+
+        function shareTemplate() {
+            const content = document.getElementById('sessionTemplate').value;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'ESP32 Context Template v2.2',
+                    text: content.substring(0, 200) + '...'
+                });
+            } else {
+                copyTemplate();
+                alert('Content copied to clipboard');
+            }
+            log('🔗 Template shared');
+        }
+
+        function clearTemplate() {
+            document.getElementById('sessionTemplate').value = '';
+            log('🗑️ Template cleared');
+        }
+
+        function openRepository() {
+            const url = `https://github.com/${CONFIG.owner}/${CONFIG.repo}`;
+            window.open(url, '_blank');
+            log('🔗 Repository opened');
+        }
+
+        // === INITIALIZATION ===
+        window.addEventListener('load', function() {
+            log('🚀 Context Manager v2.2 initialized');
+            log('🛡️ Enhanced error handling active');
+            log('⏰ 10-second timeout protection enabled');
+            
+            // Show initial status
+            updateStatus('Testing...', 'Checking...');
+            
+            // Auto-test connection after 2 seconds
+            setTimeout(() => {
+                log('🔄 Auto-testing connection...');
+                testConnection();
+            }, 2000);
+        });
+
+        // Handle connection errors gracefully
+        window.addEventListener('error', function(event) {
+            log(`🚨 JavaScript error: ${event.message}`, 'error');
+            hideLoading();
+        });
+
+        // Handle unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+            log(`🚨 Unhandled promise rejection: ${event.reason}`, 'error');
+            hideLoading();
+            event.preventDefault();
+        });
+    </script>
+</body>
+</html>
