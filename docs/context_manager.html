@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Context Manager - v2.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #24292e 0%, #586069 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #24292e 0%, #40464e 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .version-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .github-status {
+            background: rgba(255,255,255,0.1);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 16px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f85149;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #3fb950;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            padding: 24px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .panel h3 {
+            color: #24292e;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #0366d6;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .context-card {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 12px 0;
+            border: 1px solid #e1e4e8;
+            border-left: 4px solid #0366d6;
+        }
+
+        .context-card h4 {
+            color: #24292e;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .context-card p {
+            color: #586069;
+            margin: 4px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            background: #fd7e14;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin: 16px 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: #0366d6;
+            color: white;
+            border-color: #0366d6;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+            border-color: #ffc107;
+        }
+
+        .btn-github {
+            background: #24292e;
+            color: white;
+            border-color: #24292e;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .action-card {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e1e4e8;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .action-card:hover {
+            border-color: #0366d6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(3, 102, 214, 0.15);
+        }
+
+        .action-card.file-source::after {
+            content: "📁";
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            font-size: 12px;
+        }
+
+        .action-card h4 {
+            color: #24292e;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .action-card p {
+            color: #586069;
+            font-size: 12px;
+        }
+
+        .template-area {
+            grid-column: 1 / -1;
+            margin-top: 16px;
+        }
+
+        .textarea {
+            width: 100%;
+            height: 300px;
+            padding: 16px;
+            border: 1px solid #d1d5da;
+            border-radius: 8px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 13px;
+            background: #f6f8fa;
+            resize: vertical;
+            line-height: 1.45;
+        }
+
+        .file-source-indicator {
+            background: #e1f5fe;
+            border: 1px solid #81d4fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #0366d6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .log {
+            background: #24292e;
+            color: #f6f8fa;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 16px 0;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                padding: 16px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 ESP32 Context Manager <span class="version-badge">v2.0</span></h1>
+            <p>Sistema di Misura Professionale - File-Based Architecture</p>
+            <div id="githubStatus" class="github-status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Initializing GitHub connection...</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- STATUS PANEL -->
+            <div class="panel">
+                <h3>📊 Project Status</h3>
+                
+                <div class="context-card">
+                    <h4>🎯 Current Phase</h4>
+                    <p><span class="phase-badge">FASE 3A→3B</span> Integration → Testing Transition</p>
+                    <p><strong>Test Plan Source:</strong> <span id="testPlanSource">Loading...</span></p>
+                    <p><strong>Last Doc Update:</strong> <span id="lastDocUpdate">Auto-detected</span></p>
+                </div>
+
+                <div class="context-card">
+                    <h4>⚡ Priority Tasks</h4>
+                    <p>• Fix Live Data Display touch area coordinates</p>
+                    <p>• Implement sensor sync testing (&lt;10ms latency)</p>
+                    <p>• Execute automated test suite Phase 3B</p>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="syncFromGitHub()">
+                        📥 Sync Docs
+                    </button>
+                    <button class="btn btn-primary" onclick="refreshTestPlans()">
+                        🔄 Refresh Plans
+                    </button>
+                </div>
+            </div>
+
+            <!-- ACTIONS PANEL -->
+            <div class="panel">
+                <h3>⚡ Quick Actions</h3>
+                
+                <div class="quick-actions">
+                    <div class="action-card" onclick="generateStartTemplate()">
+                        <h4>🚀 Start Chat</h4>
+                        <p>Generate session template</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="generateEndTemplate()">
+                        <h4>📦 End Chat</h4>
+                        <p>Session export template</p>
+                    </div>
+                    
+                    <div class="action-card file-source" onclick="showTestPlan()">
+                        <h4>🧪 Test Plan</h4>
+                        <p>Phase 3B from docs/</p>
+                    </div>
+                    
+                    <div class="action-card file-source" onclick="showPerformanceCriteria()">
+                        <h4>📊 Performance</h4>
+                        <p>Criteria from docs/</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="openRepository()">
+                        <h4>📁 Repository</h4>
+                        <p>View source code</p>
+                    </div>
+                    
+                    <div class="action-card" onclick="openGitHubIssues()">
+                        <h4>🐛 GitHub Issues</h4>
+                        <p>Task management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TEMPLATE AREA -->
+            <div class="panel template-area">
+                <h3>📋 Session Template</h3>
+                <div id="fileSourceInfo" class="file-source-indicator" style="display: none;">
+                    <span id="sourceIcon">📁</span>
+                    <span>Source: <span id="sourceFile">docs/test-plans/fase-3b-test-plan.md</span></span>
+                    <span id="loadingIndicator" class="loading-spinner" style="display: none;"></span>
+                </div>
+                <textarea id="sessionTemplate" class="textarea" 
+                          placeholder="Click action buttons above to generate templates..."></textarea>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="copyTemplate()">
+                        📋 Copy Template
+                    </button>
+                    <button class="btn btn-warning" onclick="shareTemplate()">
+                        🔗 Share Template
+                    </button>
+                    <button class="btn btn-github" onclick="createGitHubIssue()">
+                        🐛 Create Issue
+                    </button>
+                </div>
+            </div>
+
+            <!-- ACTIVITY LOG -->
+            <div class="panel template-area">
+                <h3>📝 Activity Log</h3>
+                <div id="activityLog" class="log">
+                    [Loading] Context Manager v2.0 initializing...<br>
+                    [Info] File-based architecture enabled<br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // GITHUB CONFIGURATION
+        const GITHUB_CONFIG = {
+            owner: 'Bitstepper',
+            repo: 'ESP32-TouchMenu-HySeq',
+            branch: 'main',
+            testPlanPath: 'docs/test-plans/fase-3b-test-plan.md',
+            performancePath: 'docs/test-plans/performance-criteria.md'
+        };
+
+        // Cache for loaded documents
+        let documentCache = {
+            testPlan: null,
+            performance: null,
+            lastUpdate: null
+        };
+
+        // Project context data (same as before)
+        let projectContext = {
+            phase: "FASE_3A_TO_3B",
+            lastSession: new Date().toISOString(),
+            repository: `${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}`,
+            
+            completed: [
+                "✅ Hardware I2C mapping: Wire(sensori) + Wire1(touch) - conflicts resolved",
+                "✅ IMU Driver: LSM6DSOX + LIS3MDL functional with EEPROM calibration",
+                "✅ Radar Driver: XM125 with optimized Kalman filter (20,10,0.1)",
+                "✅ Touch Menu System: modular architecture 33+ files, service PIN working",
+                "✅ Context Manager v2.0: file-based test plans and documentation"
+            ],
+            
+            pending: [
+                "Fix Live Data Display: BACK button touch area coordinates imprecise",
+                "Implement sensor synchronization testing: target <10ms IMU↔Radar latency",
+                "Execute Phase 3B automated test suite with file-based test plans",
+                "Setup performance monitoring dashboard with real-time metrics"
+            ],
+            
+            issues: [
+                "src/touch_handler.cpp: BACK button area detection imprecise (20,270,80,35)",
+                "src/leaf_actions.cpp: updateLiveDataDisplay() implementation incomplete",
+                "docs/test-plans/: New test plan files need integration with test runner",
+                "Performance criteria: Need implementation of automated measurement"
+            ]
+        };
+
+        // GitHub API helpers
+        async function fetchGitHubFile(filePath) {
+            try {
+                const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const content = atob(data.content); // Decode base64
+                return {
+                    content: content,
+                    sha: data.sha,
+                    lastModified: data.commit?.committer?.date || new Date().toISOString()
+                };
+            } catch (error) {
+                log(`❌ Failed to fetch ${filePath}: ${error.message}`);
+                return null;
+            }
+        }
+
+        // Load test plan from file
+        async function loadTestPlan() {
+            showFileSourceInfo('📋', GITHUB_CONFIG.testPlanPath, true);
+            
+            const file = await fetchGitHubFile(GITHUB_CONFIG.testPlanPath);
+            if (file) {
+                documentCache.testPlan = file.content;
+                documentCache.lastUpdate = file.lastModified;
+                log(`✅ Test Plan loaded from ${GITHUB_CONFIG.testPlanPath}`);
+                updateTestPlanSource('File-based (latest)');
+                return file.content;
+            } else {
+                // Fallback to hard-coded version
+                log(`⚠️ Falling back to embedded test plan`);
+                updateTestPlanSource('Embedded (fallback)');
+                return getEmbeddedTestPlan();
+            }
+        }
+
+        // Load performance criteria from file
+        async function loadPerformanceCriteria() {
+            showFileSourceInfo('📊', GITHUB_CONFIG.performancePath, true);
+            
+            const file = await fetchGitHubFile(GITHUB_CONFIG.performancePath);
+            if (file) {
+                documentCache.performance = file.content;
+                log(`✅ Performance Criteria loaded from ${GITHUB_CONFIG.performancePath}`);
+                return file.content;
+            } else {
+                log(`⚠️ Falling back to embedded performance criteria`);
+                return getEmbeddedPerformanceCriteria();
+            }
+        }
+
+        // UI Helper functions
+        function showFileSourceInfo(icon, fileName, loading = false) {
+            const info = document.getElementById('fileSourceInfo');
+            const iconElement = document.getElementById('sourceIcon');
+            const fileElement = document.getElementById('sourceFile');
+            const loadingElement = document.getElementById('loadingIndicator');
+            
+            iconElement.textContent = icon;
+            fileElement.textContent = fileName;
+            loadingElement.style.display = loading ? 'inline-block' : 'none';
+            info.style.display = 'flex';
+        }
+
+        function hideFileSourceInfo() {
+            document.getElementById('fileSourceInfo').style.display = 'none';
+        }
+
+        function updateTestPlanSource(source) {
+            document.getElementById('testPlanSource').textContent = source;
+            if (documentCache.lastUpdate) {
+                document.getElementById('lastDocUpdate').textContent = 
+                    new Date(documentCache.lastUpdate).toLocaleString('it-IT');
+            }
+        }
+
+        // Action functions
+        async function showTestPlan() {
+            const content = await loadTestPlan();
+            document.getElementById('sessionTemplate').value = content;
+            hideFileSourceInfo();
+            log('📋 Test Plan displayed from file source');
+        }
+
+        async function showPerformanceCriteria() {
+            const content = await loadPerformanceCriteria();
+            document.getElementById('sessionTemplate').value = content;
+            hideFileSourceInfo();
+            log('📊 Performance Criteria displayed from file source');
+        }
+
+        async function refreshTestPlans() {
+            log('🔄 Refreshing test plans from repository...');
+            
+            // Clear cache
+            documentCache.testPlan = null;
+            documentCache.performance = null;
+            
+            // Reload both files
+            await loadTestPlan();
+            await loadPerformanceCriteria();
+            
+            log('✅ Test plans refreshed successfully');
+        }
+
+        // Updated template generation
+        function generateStartTemplate() {
+            const timestamp = new Date().toLocaleString('it-IT');
+            const template = `# 🚀 SESSIONE ESP32 - Context Auto-Loaded v2.0
+
+**Repository**: [${GITHUB_CONFIG.repo}](https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo})  
+**Context Manager**: [GitHub Pages](https://${GITHUB_CONFIG.owner}.github.io/${GITHUB_CONFIG.repo}/docs/context-manager.html)  
+**Test Plans**: File-based from \`docs/test-plans/\` 📁  
+**Fase**: ${projectContext.phase} - Integration → Testing Transition  
+**Timestamp**: ${timestamp}  
+
+## 📊 STATO PROGETTO (Auto-Sync v2.0)
+
+### ✅ COMPLETATO
+${projectContext.completed.map(item => `- ${item}`).join('\n')}
+
+### ⏳ PRIORITY TASKS  
+${projectContext.pending.map(item => `- ${item}`).join('\n')}
+
+### 🐛 ISSUES APERTI
+${projectContext.issues.map(item => `- ${item}`).join('\n')}
+
+## 📋 TEST PLAN INTEGRATION
+
+**File-Based Architecture**: Test plans ora caricati da repository files  
+- 🧪 **Test Plan**: \`${GITHUB_CONFIG.testPlanPath}\`  
+- 📊 **Performance Criteria**: \`${GITHUB_CONFIG.performancePath}\`  
+- 🔄 **Auto-Sync**: Live updates from GitHub repository  
+
+## 🎯 FOCUS IMMEDIATO
+
+**CRITICAL**: ${projectContext.pending[0]}  
+**EXECUTION**: Utilizzare test plans file-based per Phase 3B  
+**IMPLEMENTATION**: Integrare test runner con nuova documentazione  
+
+---
+**Claude, conferma di aver:**  
+✅ Analizzato repository GitHub ESP32-TouchMenu-HySeq  
+✅ Compreso l'architettura file-based v2.0 per test plans  
+✅ Visto i nuovi file in \`docs/test-plans/\`  
+✅ Pronto per implementazione test automation  
+
+**Iniziamo con**: Fix touch coordinates + test plan integration
+
+---
+*Auto-generated da Context Manager v2.0: ${timestamp}*`;
+
+            document.getElementById('sessionTemplate').value = template;
+            hideFileSourceInfo();
+            log('📋 START template v2.0 generated with file-based integration');
+        }
+
+        // Fallback embedded content (abbreviated versions)
+        function getEmbeddedTestPlan() {
+            return `# 🧪 TEST PLAN FASE 3B (Embedded Fallback)
+
+**Note**: This is the embedded fallback version. For the complete test plan, see:
+\`docs/test-plans/fase-3b-test-plan.md\` in the repository.
+
+## Critical Tests
+1. **Sensor Sync**: IMU↔Radar <10ms latency
+2. **Touch Precision**: >95% accuracy  
+3. **Display Stability**: 30Hz refresh rate
+4. **Performance**: 8h continuous operation
+
+## Implementation
+- Use \`src/sync_test.h\` for automated testing
+- Reference full documentation in repository files
+- Execute via test runner integration
+
+*For complete test plan, refresh from repository or check GitHub directly.*`;
+        }
+
+        function getEmbeddedPerformanceCriteria() {
+            return `# 📊 PERFORMANCE CRITERIA (Embedded Fallback)
+
+**Note**: This is abbreviated. Complete criteria in:
+\`docs/test-plans/performance-criteria.md\`
+
+## Key Metrics
+- **Sync Latency**: <10ms target, <20ms critical
+- **Accuracy**: ±2mm distance, ±0.1° pitch, ±0.5° yaw  
+- **Performance**: <50% CPU, >4h uptime
+- **Touch**: >95% accuracy, <50ms response
+
+*For detailed criteria matrix, load from repository files.*`;
+        }
+
+        // Utility functions (copy, share, etc. - same as before)
+        function copyTemplate() {
+            const template = document.getElementById('sessionTemplate');
+            template.select();
+            document.execCommand('copy');
+            
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#28a745';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '#0366d6';
+            }, 2000);
+            
+            log('📋 Template copied to clipboard');
+        }
+
+        function shareTemplate() {
+            const template = document.getElementById('sessionTemplate').value;
+            const encodedTemplate = encodeURIComponent(template);
+            const shareUrl = `${window.location.href}?template=${encodedTemplate}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'ESP32 Test Plan',
+                    text: 'File-based test plan template',
+                    url: shareUrl
+                });
+            } else {
+                navigator.clipboard.writeText(shareUrl);
+                alert('Share URL copied to clipboard!');
+            }
+            
+            log('🔗 Template shared');
+        }
+
+        function openRepository() {
+            window.open(`https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}`, '_blank');
+            log('📁 Opening repository...');
+        }
+
+        function openGitHubIssues() {
+            window.open(`https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/issues`, '_blank');
+            log('🐛 Opening GitHub Issues...');
+        }
+
+        function createGitHubIssue() {
+            const title = prompt('GitHub Issue Title:');
+            if (title) {
+                const url = `https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/issues/new?title=${encodeURIComponent(title)}`;
+                window.open(url, '_blank');
+                log('🐛 Creating GitHub Issue...');
+            }
+        }
+
+        function syncFromGitHub() {
+            log('📥 Syncing documentation from GitHub...');
+            refreshTestPlans();
+        }
+
+        function generateEndTemplate() {
+            const timestamp = new Date().toLocaleString('it-IT');
+            const template = `# 📦 SESSION EXPORT ESP32 v2.0
+
+**Repository**: [${GITHUB_CONFIG.repo}](https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo})  
+**Context Manager**: v2.0 File-Based Architecture  
+**Data**: ${new Date().toLocaleDateString('it-IT')}  
+
+## ✅ COMPLETATO QUESTA SESSIONE
+- [INSERIRE TASK COMPLETATI]
+- [INSERIRE MODIFICHE FILE-BASED TEST PLANS]
+
+## 📁 FILE MODIFICATI
+\`\`\`
+- src/[FILE].cpp - [DESCRIZIONE]
+- docs/test-plans/[FILE].md - [AGGIORNAMENTI]
+\`\`\`
+
+## 🧪 TEST PLAN UPDATES
+- File-based architecture: [MODIFICHE AI PIANI TEST]
+- Integration status: [STATO INTEGRAZIONE TEST RUNNER]
+
+## 🎯 NEXT SESSION FOCUS
+**Test Integration**: Collegare file-based plans con automation  
+**Documentation**: Mantenere sincronizzazione docs/ con implementation  
+
+---
+*Session closed: ${timestamp}*  
+*Context auto-saved to GitHub Pages v2.0*`;
+
+            document.getElementById('sessionTemplate').value = template;
+            hideFileSourceInfo();
+            log('📦 END template v2.0 generated');
+        }
+
+        // Logging function
+        function log(message) {
+            const logElement = document.getElementById('activityLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}<br>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Initialize application
+        window.onload = function() {
+            log('🚀 Context Manager v2.0 initialized');
+            log('📁 File-based architecture enabled');
+            log(`📋 Test Plan source: ${GITHUB_CONFIG.testPlanPath}`);
+            log(`📊 Performance source: ${GITHUB_CONFIG.performancePath}`);
+            
+            // Load initial test plan status
+            updateTestPlanSource('File-based (checking...)');
+            
+            // Generate default template
+            generateStartTemplate();
+            
+            // Check file availability
+            refreshTestPlans();
+        };
+    </script>
+</body>
+</html>
